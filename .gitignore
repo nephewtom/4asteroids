@@ -1,0 +1,10 @@
+.vs
+*.pdb
+*.ilk
+*.sln
+*.obj
+fonts/orbitron/source
+fonts/orbitron/webfonts
+fonts/orbitron/images
+fonts/orbitron/.gitignore
+
