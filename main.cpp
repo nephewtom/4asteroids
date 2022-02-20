@@ -19,11 +19,10 @@ struct Pair {
 };
 
 Pair resolution = { 0, 0 };
+const char* windowTitle = "Space4U";
 
 float wFactor[3] = { 0.5f, 2 / 3.0f, 1.0f }; // screen factors
 int wIndex = 0;
-
-const char* title = "Platformer!";
 
 float DEGTORAD = 0.017453f;
 
@@ -36,11 +35,11 @@ void toggleFullScreen(RenderWindow& window) {
 
   if (isFullScreen) {
     printf("Toggle to Window!\n");
-    window.create(VideoMode(resolution.w, resolution.h), title);
+    window.create(VideoMode(resolution.w, resolution.h), windowTitle);
   }
   else {
     printf("toggle to Fullscreen!\n");
-    window.create(VideoMode(resolution.w, resolution.h), title, Style::Fullscreen);
+    window.create(VideoMode(resolution.w, resolution.h), windowTitle, Style::Fullscreen);
   }
   isFullScreen = !isFullScreen;
   printf("\n");
@@ -170,12 +169,17 @@ public:
 };
 
 struct Global {
+  
+  //RenderWindow& window;
+
   Font font;
   Texture tBackground;
   Sprite sBackground;
   vector<VideoMode> availableVideoModes;
   int videoModeIndex;
   int numberOfPlayers;
+
+  //Global(RenderWindow& w) : window(w) { }
 
   int init() {
 
@@ -406,17 +410,22 @@ public:
   int init() {
 
     MenuEntry* mPlay = new MenuEntry(playText, font, 100 * wFactor[wIndex]);
-    MenuEntry* mPlayers = new MenuEntry(playersText, font, 100 * wFactor[wIndex]);
+
+    int& np = global.numberOfPlayers;
+    subMenuPlayers = new MenuEntry((char)(np + 0x30), font, 100 * wFactor[wIndex]);
+    menuPlayers = new MenuEntry(playersText, font, 100 * wFactor[wIndex], subMenuPlayers);
 
     auto vm = global.availableVideoModes[global.videoModeIndex];
     char buffer[16];
     sprintf(buffer, "%ix%i", vm.width, vm.height);
     subMenuResolution = new MenuEntry(buffer, font, 80 * wFactor[wIndex]);
     menuResolution = new MenuEntry(resolutionText, font, 100 * wFactor[wIndex], subMenuResolution);
+
     MenuEntry* mExit = new MenuEntry(exitText, font, 100 * wFactor[wIndex]);
+
     menus.push_back(mPlay);
     menus.push_back(menuResolution);
-    menus.push_back(mPlayers);
+    menus.push_back(menuPlayers);
     menus.push_back(mExit);
 
     int n = 2;
@@ -494,6 +503,12 @@ public:
       sprintf(buffer, "%ix%i", vm[index].width, vm[index].height);
       subMenuResolution->setString(buffer);
     }
+    if (currentMenu == Players) {
+      int& np = global.numberOfPlayers;
+      np--;
+      np = np < 2 ? 4 : np;
+      subMenuPlayers->setString((char)(np + 0x30));
+    }
 
   }
   void handleDownEvent() {
@@ -517,6 +532,12 @@ public:
       sprintf(buffer, "%ix%i", vm[index].width, vm[index].height);
       subMenuResolution->setString(buffer);
     }
+    if (currentMenu == Players) {
+      int& np = global.numberOfPlayers;
+      np++;
+      np = np > 4 ? 2 : np;
+      subMenuPlayers->setString((char)(np + 0x30));
+    }
   }
 
   Screen::Action handleReturnEvent() {
@@ -526,28 +547,43 @@ public:
         if (!Joystick::isConnected(i)) {
           char buffer[128];
           sprintf(buffer, "Game can not start, joystick: %i not connected.\n", i);
-          updateHelp(buffer);
+          updateHelpWithWarning(buffer);
           return Screen::Keep;
         }
       }
 
       return Screen::Game;
     }
-    else if (currentMenu == Resolution) {
 
+    if (currentMenu == Players) {
+      if (!inSubMenu) {
+        inSubMenu = true;
+        menuPlayers->text.setColor(defaultColor);
+        subMenuPlayers->text.setColor(highlightColor);
+      } else {
+        menuPlayers->text.setColor(highlightColor);
+        subMenuPlayers->text.setColor(defaultColor);
+        inSubMenu = false; 
+      }
+    }
+
+    if (currentMenu == Resolution) {
       if (!inSubMenu) {
         inSubMenu = true;
         menuResolution->text.setColor(defaultColor);
         subMenuResolution->text.setColor(highlightColor);
-      } else {
+      }
+      else {
         menuResolution->text.setColor(highlightColor);
         subMenuResolution->text.setColor(defaultColor);
-        inSubMenu = false;        
+        inSubMenu = false;
+
+        //global.window.create(VideoMode(resolution.w, resolution.h), windowTitle);
       }
       return Screen::Keep;
-
     }
-    else if (currentMenu == Exit) {
+
+    if (currentMenu == Exit) {
       return Screen::Exit;
     }
 
@@ -556,9 +592,15 @@ public:
 
   Screen::Action handleEscapeEvent() {
     if (!inSubMenu) {
+      // TODO: Remove when game finished
       return Screen::Exit;
     }
 
+    if (currentMenu == Players) {
+      menuPlayers->text.setColor(highlightColor);
+      subMenuPlayers->text.setColor(defaultColor);
+      inSubMenu = false;
+    }
     if (currentMenu == Resolution) {
       menuResolution->text.setColor(highlightColor);
       subMenuResolution->text.setColor(defaultColor);
@@ -567,11 +609,15 @@ public:
     return Screen::Keep;
   }
 
-  void updateHelp(const char* msg) {
+  void updateHelpWithWarning(const char* msg) {
     help.setString(msg);
     FloatRect tRect = help.getLocalBounds();
     help.setOrigin(tRect.left + tRect.width / 2, tRect.top + tRect.height / 2);
-    help.setPosition(Vector2f(resolution.w / 2.0f, 3*resolution.h / 4.0f));    
+    help.setPosition(Vector2f(resolution.w / 2.0f, 7 * resolution.h / 8.0f));
+  }
+
+  void handleJoystick(int id) {
+
   }
 
   virtual int run(RenderWindow& window) {
@@ -602,6 +648,15 @@ public:
             }
           }
 
+          if ((event.type == Event::JoystickButtonPressed) ||
+            (event.type == Event::JoystickButtonReleased) ||
+            (event.type == Event::JoystickMoved) ||
+            (event.type == Event::JoystickConnected)) {
+
+            int id = event.joystickConnect.joystickId;
+            handleJoystick(id);
+          }
+
           if (event.key.code == Keyboard::F11) {
             toggleFullScreen(window);
           }
@@ -610,6 +665,7 @@ public:
 
       window.clear();
       global.draw(window);
+      window.draw(title);
       for (auto m : menus) {
         m->draw(window);
       }
@@ -837,7 +893,6 @@ int main()
   screens[0] = &menu;
   screens[1] = &game;
   int currentScreen = Screen::Menu;
-
 
   while (currentScreen >= 0) {
     currentScreen = screens[currentScreen]->run(window);
