@@ -213,8 +213,8 @@ struct Global {
     }
   }
 
-  void draw(RenderWindow& window) {
-    window.draw(sBackground);
+  void draw(RenderWindow& w) {
+    w.draw(sBackground);
   }
 };
 
@@ -380,6 +380,8 @@ class Menu : public Screen {
   Font& font;
   Global& global;
 
+  Text title;
+
   vector<MenuEntry*> menus;
   enum MenuIndex { Play = 0, Resolution, Players, Exit };
   String playText = "Play";
@@ -389,8 +391,10 @@ class Menu : public Screen {
   int currentMenu;
 
   bool inSubMenu;
-  MenuEntry* subMenuResolution;
   MenuEntry* menuResolution;
+  MenuEntry* subMenuResolution;
+  MenuEntry* menuPlayers;
+  MenuEntry* subMenuPlayers;
 
   Text help;
 
@@ -401,17 +405,13 @@ public:
 
   int init() {
 
-    if (!font.loadFromFile("fonts/orbitron/Orbitron Black.otf")) {
-      return Screen::Exit;
-    }
-
     MenuEntry* mPlay = new MenuEntry(playText, font, 100 * wFactor[wIndex]);
     MenuEntry* mPlayers = new MenuEntry(playersText, font, 100 * wFactor[wIndex]);
 
     auto vm = global.availableVideoModes[global.videoModeIndex];
     char buffer[16];
     sprintf(buffer, "%ix%i", vm.width, vm.height);
-    subMenuResolution = new MenuEntry(buffer, font, 100 * wFactor[wIndex]);
+    subMenuResolution = new MenuEntry(buffer, font, 80 * wFactor[wIndex]);
     menuResolution = new MenuEntry(resolutionText, font, 100 * wFactor[wIndex], subMenuResolution);
     MenuEntry* mExit = new MenuEntry(exitText, font, 100 * wFactor[wIndex]);
     menus.push_back(mPlay);
@@ -419,7 +419,7 @@ public:
     menus.push_back(mPlayers);
     menus.push_back(mExit);
 
-    int n = 1;
+    int n = 2;
     for (auto m : menus) {
       m->setPosition(Vector2f(resolution.w / 5.0f, n * resolution.h / 8.0f));
       if (m->subMenu) {
@@ -433,8 +433,44 @@ public:
     help.setOutlineColor(Color::Red);
     help.setCharacterSize(50 * wFactor[wIndex]);
     help.setOutlineThickness(1.0f);
-    
+
+    title.setFont(font);
+    title.setFillColor(Color::Magenta);
+    title.setOutlineColor(Color::Green);
+    title.setCharacterSize(150 * wFactor[wIndex]);
+    title.setOutlineThickness(3.0f);
+    title.setString("Space4U");
+    FloatRect tRect = title.getLocalBounds();
+    title.setOrigin(tRect.left + tRect.width / 2, tRect.top + tRect.height / 2);
+    title.setPosition(Vector2f(resolution.w / 2.0f, 1 * resolution.h / 8.0f));
+
+
+    currentMenu = Play;
+    menus[currentMenu]->setFillColor(Color::Red);
+    updateHelpMenu();
     return Screen::Ok;
+  }
+
+  void updateHelpMenu() {
+    // String s = "ENTER or A button to ";
+    String s = "";
+    switch (currentMenu) {
+    case Play:
+      help.setString(s + "Play game");
+      break;
+    case Resolution:
+      help.setString(s + "Change resolution");
+      break;
+    case Players:
+      help.setString(s + "Set number of players (2-4)");
+      break;
+    case Exit:
+      help.setString(s + "Exit");
+      break;
+    }
+    FloatRect tRect = help.getLocalBounds();
+    help.setOrigin(tRect.left + tRect.width / 2, tRect.top + tRect.height / 2);
+    help.setPosition(Vector2f(resolution.w / 2.0f, 7 * resolution.h / 8.0f));
   }
 
   void handleUpEvent() {
@@ -443,6 +479,8 @@ public:
       currentMenu--;
       currentMenu = currentMenu < 0 ? menus.size() - 1 : currentMenu;
       menus[currentMenu]->setFillColor(highlightColor);
+
+      updateHelpMenu();
       return;
     }
     if (currentMenu == Resolution) {
@@ -464,6 +502,8 @@ public:
       currentMenu++;
       currentMenu = (currentMenu == menus.size()) ? 0 : currentMenu;
       menus[currentMenu]->setFillColor(highlightColor);
+
+      updateHelpMenu();
       return;
     }
     if (currentMenu == Resolution) {
@@ -520,9 +560,9 @@ public:
     }
 
     if (currentMenu == Resolution) {
-        menuResolution->text.setColor(highlightColor);
-        subMenuResolution->text.setColor(defaultColor);
-        inSubMenu = false;
+      menuResolution->text.setColor(highlightColor);
+      subMenuResolution->text.setColor(defaultColor);
+      inSubMenu = false;
     }
     return Screen::Keep;
   }
@@ -536,8 +576,7 @@ public:
 
   virtual int run(RenderWindow& window) {
     bool running = true;
-    currentMenu = Play;
-    menus[currentMenu]->setFillColor(Color::Red);
+
 
     while (running) {
 
