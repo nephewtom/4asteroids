@@ -16,7 +16,7 @@
         "**/SFML/.*": true,
         "**/SFML/*.md": true,
         // "**/SFML/CMakeLists.txt": true,
-        // "**/SFML/src": true,
+        "**/SFML/": true,
     },
 
     "files.associations": {
@@ -70,6 +70,8 @@
         "xtr1common": "cpp",
         "xtree": "cpp",
         "iostream": "cpp",
-        "set": "cpp"
-    }
+        "set": "cpp",
+        "*.rh": "cpp"
+    },
+    "cmake.configureOnOpen": false
 }
